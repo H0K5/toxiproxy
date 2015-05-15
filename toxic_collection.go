@@ -10,31 +10,29 @@ import (
 type ToxicCollection struct {
 	sync.Mutex
 
-	noop   *NoopToxic
+	noop   *ToxicWrapper
 	proxy  *Proxy
-	chain  []Toxic
-	toxics []Toxic
+	chain  []*ToxicWrapper
+	toxics []*ToxicWrapper
 	links  map[string]*ToxicLink
 }
 
 func NewToxicCollection(proxy *Proxy) *ToxicCollection {
-	toxicOrder := []Toxic{
-		new(SlowCloseToxic),
-		new(LatencyToxic),
-		new(BandwidthToxic),
-		new(TimeoutToxic),
+	toxicOrder := []*ToxicWrapper{
+		{new(SlowCloseToxic), false, -1},
+		{new(LatencyToxic), false, -1},
+		{new(BandwidthToxic), false, -1},
+		{new(TimeoutToxic), false, -1},
 	}
 
 	collection := &ToxicCollection{
-		noop:   new(NoopToxic),
+		noop:   &ToxicWrapper{new(NoopToxic), true, 0},
 		proxy:  proxy,
-		chain:  make([]Toxic, len(toxicOrder)),
+		chain:  make([]*ToxicWrapper, 1),
 		toxics: toxicOrder,
 		links:  make(map[string]*ToxicLink),
 	}
-	for i := 0; i < len(collection.chain); i++ {
-		collection.chain[i] = collection.noop
-	}
+	collection.chain[0] = collection.noop
 	return collection
 }
 
@@ -43,7 +41,7 @@ func (c *ToxicCollection) ResetToxics() {
 	defer c.Unlock()
 
 	for index, toxic := range c.toxics {
-		toxic.SetEnabled(false)
+		toxic.Enabled = false
 		c.setToxic(toxic, index)
 	}
 }
@@ -89,7 +87,7 @@ func (c *ToxicCollection) SetToxicValue(toxic Toxic) error {
 
 // Assumes lock has already been grabbed
 func (c *ToxicCollection) setToxic(toxic Toxic, index int) {
-	if !toxic.IsEnabled() {
+	if !toxic.Enabled {
 		c.chain[index] = c.noop
 	} else {
 		c.chain[index] = toxic

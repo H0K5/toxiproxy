@@ -17,14 +17,14 @@ type Toxic interface {
 	// Return the unique name of the toxic, as used by the json api.
 	Name() string
 
-	// Returns true if the toxic is enabled. Disabled toxics are not used and are replaced with NoopToxics.
-	IsEnabled() bool
-
-	// Sets the enabled field of the toxic, does not replace the toxic when set.
-	SetEnabled(bool)
-
 	// Defines how packets flow through a ToxicStub. Pipe() blocks until the link is closed or interrupted.
 	Pipe(*ToxicStub)
+}
+
+type ToxicWrapper struct {
+	Toxic
+	Enabled bool
+	Index   int
 }
 
 type ToxicStub struct {
