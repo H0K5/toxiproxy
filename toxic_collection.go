@@ -46,7 +46,22 @@ func (c *ToxicCollection) ResetToxics() {
 	}
 }
 
+func (c *ToxicCollection) GetToxic(name string) Toxic {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, toxic := range c.toxics {
+		if toxic.Name() == name {
+			return toxic
+		}
+	}
+	return nil
+}
+
 func (c *ToxicCollection) GetToxicMap() map[string]Toxic {
+	c.Lock()
+	defer c.Unlock()
+
 	result := make(map[string]Toxic)
 	for _, toxic := range c.toxics {
 		result[toxic.Name()] = toxic

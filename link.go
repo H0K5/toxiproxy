@@ -7,13 +7,13 @@ import (
 )
 
 // ToxicLinks are single direction pipelines that connects an input and output via
-// a chain of toxics. There is a fixed number of toxics in the chain, such that a
-// toxic always maps to the same toxic stub. Toxics are replaced with noops when
-// disabled.
+// a chain of toxics. The chain always starts with a NoopToxic, and toxics are added
+// and removed as they are enabled/disabled. New toxics are always added to the end
+// of the chain.
 //
-//         NoopToxic LatencyToxic  NoopToxic
-//             v           v           v
-// Input > ToxicStub > ToxicStub > ToxicStub > Output
+//         NoopToxic  LatencyToxic
+//             v           v
+// Input > ToxicStub > ToxicStub > Output
 //
 type ToxicLink struct {
 	stubs  []*ToxicStub
@@ -25,7 +25,7 @@ type ToxicLink struct {
 
 func NewToxicLink(proxy *Proxy, toxics *ToxicCollection) *ToxicLink {
 	link := &ToxicLink{
-		stubs:  make([]*ToxicStub, len(toxics.chain)),
+		stubs:  make([]*ToxicStub, len(toxics.chain), cap(toxics.chain)),
 		proxy:  proxy,
 		toxics: toxics,
 	}
@@ -75,9 +75,32 @@ func (link *ToxicLink) Start(name string, source io.Reader, dest io.WriteCloser)
 	}()
 }
 
-// Replace the toxic at the specified index
-func (link *ToxicLink) SetToxic(toxic Toxic, index int) {
-	if link.stubs[index].Interrupt() {
+// Add a toxic to the end of the chain.
+func (link *ToxicLink) AddToxic(toxic *ToxicWrapper) {
+	index := len(link.stubs)
+	toxic.Index = index
+
+	// Interrupt the last toxic so that we don't have a race when moving channels
+	if link.stubs[index-1].Interrupt() {
+		newin := make(chan *StreamChunk)
+		link.stubs = append(link.stubs, NewToxicStub(newin, link.stubs[index-1].output))
+		link.stubs[index-1].output = newin
+
 		go link.stubs[index].Run(toxic)
+		go link.stubs[index-1].Run(link.toxics.chain[index-1])
+	}
+}
+
+// Replace an existing toxic in the chain.
+func (link *ToxicLink) UpdateToxic(toxic *ToxicWrapper) {
+	if link.stubs[toxic.Index].Interrupt() {
+		go link.stubs[toxic.Index].Run(toxic)
+	}
+}
+
+// Remove an existing toxic from the chain.
+func (link *ToxicLink) RemoveToxic(toxic *ToxicWrapper) {
+	if link.stubs[toxic.Index].Interrupt() {
+		go link.stubs[toxic.Index].Run(toxic)
 	}
 }
