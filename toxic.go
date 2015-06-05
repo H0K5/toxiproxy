@@ -23,8 +23,7 @@ type Toxic interface {
 
 type ToxicWrapper struct {
 	Toxic
-	Enabled bool
-	Index   int
+	Index int
 }
 
 type ToxicStub struct {

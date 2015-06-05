@@ -10,27 +10,29 @@ import (
 type ToxicCollection struct {
 	sync.Mutex
 
-	noop   *ToxicWrapper
-	proxy  *Proxy
-	chain  []*ToxicWrapper
-	toxics []*ToxicWrapper
-	links  map[string]*ToxicLink
+	noop      *ToxicWrapper
+	proxy     *Proxy
+	chain     []*ToxicWrapper
+	toxics    []*ToxicWrapper
+	available []Toxic
+	links     map[string]*ToxicLink
 }
 
 func NewToxicCollection(proxy *Proxy) *ToxicCollection {
-	toxicOrder := []*ToxicWrapper{
-		{new(SlowCloseToxic), false, -1},
-		{new(LatencyToxic), false, -1},
-		{new(BandwidthToxic), false, -1},
-		{new(TimeoutToxic), false, -1},
+	available := []Toxic{
+		new(SlowCloseToxic),
+		new(LatencyToxic),
+		new(BandwidthToxic),
+		new(TimeoutToxic),
 	}
 
 	collection := &ToxicCollection{
-		noop:   &ToxicWrapper{new(NoopToxic), true, 0},
-		proxy:  proxy,
-		chain:  make([]*ToxicWrapper, 1),
-		toxics: toxicOrder,
-		links:  make(map[string]*ToxicLink),
+		noop:      &ToxicWrapper{new(NoopToxic), 0},
+		proxy:     proxy,
+		chain:     make([]*ToxicWrapper, 1, len(available)+1),
+		toxics:    make([]*ToxicWrapper, 0, len(available)),
+		available: available,
+		links:     make(map[string]*ToxicLink),
 	}
 	collection.chain[0] = collection.noop
 	return collection
@@ -40,10 +42,12 @@ func (c *ToxicCollection) ResetToxics() {
 	c.Lock()
 	defer c.Unlock()
 
-	for index, toxic := range c.toxics {
-		toxic.Enabled = false
-		c.setToxic(toxic, index)
+	for _, toxic := range c.toxics {
+		// TODO do this in bulk
+		c.chainRemoveToxic(toxic)
 	}
+	// TODO does this keep capacity?
+	c.toxics = c.toxics[:0]
 }
 
 func (c *ToxicCollection) GetToxic(name string) Toxic {
@@ -69,55 +73,62 @@ func (c *ToxicCollection) GetToxicMap() map[string]Toxic {
 	return result
 }
 
-func (c *ToxicCollection) SetToxicJson(name string, data io.Reader) (Toxic, error) {
+func (c *ToxicCollection) AddToxicJson(name string, data io.Reader) (Toxic, error) {
 	c.Lock()
 	defer c.Unlock()
 
-	for index, toxic := range c.toxics {
+	for _, toxic := range c.available {
 		if toxic.Name() == name {
+			for _, toxic2 := range c.toxics {
+				if toxic2.Name() == name {
+					return nil, fmt.Errorf("Toxic already exists: %s", name)
+				}
+			}
 			err := json.NewDecoder(data).Decode(toxic)
 			if err != nil {
 				return nil, err
 			}
 
-			c.setToxic(toxic, index)
+			toxic2 := &ToxicWrapper{toxic, -1}
+			c.toxics = append(c.toxics, toxic2)
+			c.chainAddToxic(toxic2)
 			return toxic, nil
 		}
 	}
 	return nil, fmt.Errorf("Bad toxic type: %s", name)
 }
 
-func (c *ToxicCollection) SetToxicValue(toxic Toxic) error {
+func (c *ToxicCollection) UpdateToxicJson(name string, data io.Reader) (Toxic, error) {
 	c.Lock()
 	defer c.Unlock()
 
-	for index, toxic2 := range c.toxics {
-		if toxic2.Name() == toxic.Name() {
-			c.setToxic(toxic, index)
+	for _, toxic := range c.toxics {
+		if toxic.Name() == name {
+			err := json.NewDecoder(data).Decode(toxic.Toxic)
+			if err != nil {
+				return nil, err
+			}
+
+			c.chainUpdateToxic(toxic)
+			return toxic.Toxic, nil
+		}
+	}
+	return nil, fmt.Errorf("Bad toxic type: %s", name)
+}
+
+func (c *ToxicCollection) RemoveToxic(name string) error {
+	c.Lock()
+	defer c.Unlock()
+
+	for index, toxic := range c.toxics {
+		if toxic.Name() == name {
+			c.toxics = append(c.toxics[:index], c.toxics[index+1:]...)
+
+			c.chainRemoveToxic(toxic)
 			return nil
 		}
 	}
-	return fmt.Errorf("Bad toxic type: %v", toxic)
-}
-
-// Assumes lock has already been grabbed
-func (c *ToxicCollection) setToxic(toxic Toxic, index int) {
-	if !toxic.Enabled {
-		c.chain[index] = c.noop
-	} else {
-		c.chain[index] = toxic
-	}
-
-	// Asynchronously update the toxic in each link
-	group := sync.WaitGroup{}
-	for _, link := range c.links {
-		group.Add(1)
-		go func(link *ToxicLink) {
-			defer group.Done()
-			link.SetToxic(c.chain[index], index)
-		}(link)
-	}
-	group.Wait()
+	return fmt.Errorf("Bad toxic type: %s", name)
 }
 
 func (c *ToxicCollection) StartLink(name string, input io.Reader, output io.WriteCloser) {
@@ -133,4 +144,56 @@ func (c *ToxicCollection) RemoveLink(name string) {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.links, name)
+}
+
+// All following functions assume the lock is already grabbed
+func (c *ToxicCollection) chainAddToxic(toxic *ToxicWrapper) {
+	toxic.Index = len(c.chain)
+	c.chain = append(c.chain, toxic)
+
+	// Asynchronously add the toxic in each link
+	group := sync.WaitGroup{}
+	for _, link := range c.links {
+		group.Add(1)
+		go func(link *ToxicLink) {
+			defer group.Done()
+			link.AddToxic(toxic)
+		}(link)
+	}
+	group.Wait()
+}
+
+func (c *ToxicCollection) chainUpdateToxic(toxic *ToxicWrapper) {
+	c.chain[toxic.Index] = toxic
+
+	// Asynchronously add the toxic in each link
+	group := sync.WaitGroup{}
+	for _, link := range c.links {
+		group.Add(1)
+		go func(link *ToxicLink) {
+			defer group.Done()
+			link.UpdateToxic(toxic)
+		}(link)
+	}
+	group.Wait()
+}
+
+func (c *ToxicCollection) chainRemoveToxic(toxic *ToxicWrapper) {
+	c.chain = append(c.chain[:toxic.Index], c.chain[toxic.Index+1:]...)
+	for i := toxic.Index; i < len(c.chain); i++ {
+		c.chain[i].Index = i
+	}
+
+	// Asynchronously add the toxic in each link
+	group := sync.WaitGroup{}
+	for _, link := range c.links {
+		group.Add(1)
+		go func(link *ToxicLink) {
+			defer group.Done()
+			link.RemoveToxic(toxic)
+		}(link)
+	}
+	group.Wait()
+
+	toxic.Index = -1
 }

@@ -4,21 +4,12 @@ import "time"
 
 // The BandwidthToxic passes data through at a limited rate
 type BandwidthToxic struct {
-	Enabled bool `json:"enabled"`
 	// Rate in KB/s
 	Rate int64 `json:"rate"`
 }
 
 func (t *BandwidthToxic) Name() string {
 	return "bandwidth"
-}
-
-func (t *BandwidthToxic) IsEnabled() bool {
-	return t.Enabled
-}
-
-func (t *BandwidthToxic) SetEnabled(enabled bool) {
-	t.Enabled = enabled
 }
 
 func (t *BandwidthToxic) Pipe(stub *ToxicStub) {

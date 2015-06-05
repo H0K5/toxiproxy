@@ -89,7 +89,7 @@ func TestIndexWithToxics(t *testing.T) {
 	WithServer(t, func(addr string) {
 		err := testProxy.Create()
 		if err != nil {
-			t.Fatal("Unable to create proxy")
+			t.Fatal("Unable to create proxy: ", err)
 		}
 
 		proxies, err := client.Proxies()
@@ -116,7 +116,7 @@ func TestGetProxy(t *testing.T) {
 	WithServer(t, func(addr string) {
 		err := testProxy.Create()
 		if err != nil {
-			t.Fatal("Unable to create proxy")
+			t.Fatal("Unable to create proxy: ", err)
 		}
 
 		proxy, err := client.Proxy("mysql_master")
@@ -235,7 +235,7 @@ func TestCreateProxyTwice(t *testing.T) {
 	WithServer(t, func(addr string) {
 		err := testProxy.Create()
 		if err != nil {
-			t.Fatal("Unable to create proxy")
+			t.Fatal("Unable to create proxy: ", err)
 		}
 
 		err = testProxy.Create()
@@ -316,7 +316,7 @@ func TestListingToxics(t *testing.T) {
 	WithServer(t, func(addr string) {
 		err := testProxy.Create()
 		if err != nil {
-			t.Fatal("Unable to create proxy")
+			t.Fatal("Unable to create proxy: ", err)
 		}
 
 		toxics, err := testProxy.Toxics("upstream")
@@ -332,7 +332,7 @@ func TestSetToxics(t *testing.T) {
 	WithServer(t, func(addr string) {
 		err := testProxy.Create()
 		if err != nil {
-			t.Fatal("Unable to create proxy")
+			t.Fatal("Unable to create proxy: ", err)
 		}
 
 		latency, err := testProxy.SetToxic("latency", "downstream", tclient.Toxic{
@@ -424,13 +424,13 @@ func TestVersionEndpointReturnsVersion(t *testing.T) {
 
 func AssertToxicEnabled(t *testing.T, toxics tclient.Toxics, name string, enabled bool) tclient.Toxic {
 	toxic, ok := toxics[name]
-	if !ok {
-		t.Fatalf("Expected to see %s toxic in list", name)
-		return nil
-	}
-	if toxic["enabled"] != enabled {
-		t.Fatal("%s toxic should have had enabled = %v", name, enabled)
-		return nil
+	if ok != enabled {
+		if enabled {
+			t.Fatalf("Expected to see %s toxic in list", name)
+		} else {
+			t.Fatalf("Expected %s toxic to be missing from list", name)
+		}
+		return toxic
 	}
 	return toxic
 }

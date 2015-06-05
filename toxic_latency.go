@@ -7,7 +7,6 @@ import (
 
 // The LatencyToxic passes data through with the a delay of latency +/- jitter added.
 type LatencyToxic struct {
-	Enabled bool `json:"enabled"`
 	// Times in milliseconds
 	Latency int64 `json:"latency"`
 	Jitter  int64 `json:"jitter"`
@@ -15,14 +14,6 @@ type LatencyToxic struct {
 
 func (t *LatencyToxic) Name() string {
 	return "latency"
-}
-
-func (t *LatencyToxic) IsEnabled() bool {
-	return t.Enabled
-}
-
-func (t *LatencyToxic) SetEnabled(enabled bool) {
-	t.Enabled = enabled
 }
 
 func (t *LatencyToxic) delay() time.Duration {

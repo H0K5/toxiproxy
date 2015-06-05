@@ -77,17 +77,16 @@ func (link *ToxicLink) Start(name string, source io.Reader, dest io.WriteCloser)
 
 // Add a toxic to the end of the chain.
 func (link *ToxicLink) AddToxic(toxic *ToxicWrapper) {
-	index := len(link.stubs)
-	toxic.Index = index
+	i := toxic.Index
 
 	// Interrupt the last toxic so that we don't have a race when moving channels
-	if link.stubs[index-1].Interrupt() {
+	if link.stubs[i-1].Interrupt() {
 		newin := make(chan *StreamChunk)
-		link.stubs = append(link.stubs, NewToxicStub(newin, link.stubs[index-1].output))
-		link.stubs[index-1].output = newin
+		link.stubs = append(link.stubs, NewToxicStub(newin, link.stubs[i-1].output))
+		link.stubs[i-1].output = newin
 
-		go link.stubs[index].Run(toxic)
-		go link.stubs[index-1].Run(link.toxics.chain[index-1])
+		go link.stubs[i].Run(toxic)
+		go link.stubs[i-1].Run(link.toxics.chain[i-1])
 	}
 }
 
@@ -100,7 +99,14 @@ func (link *ToxicLink) UpdateToxic(toxic *ToxicWrapper) {
 
 // Remove an existing toxic from the chain.
 func (link *ToxicLink) RemoveToxic(toxic *ToxicWrapper) {
-	if link.stubs[toxic.Index].Interrupt() {
-		go link.stubs[toxic.Index].Run(toxic)
+	i := toxic.Index
+
+	// Interrupt the last toxic so that the target's buffer is empty
+	if link.stubs[i-1].Interrupt() && link.stubs[i].Interrupt() {
+		link.stubs[i-1].output = link.stubs[i].output
+		link.stubs = append(link.stubs[:i], link.stubs[i+1:]...)
+
+		go link.stubs[i-1].Run(link.toxics.chain[i-1])
 	}
+
 }

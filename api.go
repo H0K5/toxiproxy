@@ -150,6 +150,28 @@ func (server *server) ProxyCreate(response http.ResponseWriter, request *http.Re
 	}
 }
 
+func (server *server) ProxyShow(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(request)
+
+	proxy, err := server.collection.Get(vars["proxy"])
+	if err != nil {
+		http.Error(response, server.apiError(err, http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	data, err := json.Marshal(proxyWithToxics(proxy))
+	if err != nil {
+		http.Error(response, server.apiError(err, http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = response.Write(data)
+	if err != nil {
+		logrus.Warn("ProxyShow: Failed to write response to client", err)
+	}
+}
+
 func (server *server) ProxyUpdate(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(request)
@@ -203,28 +225,6 @@ func (server *server) ProxyDelete(response http.ResponseWriter, request *http.Re
 	}
 }
 
-func (server *server) ProxyShow(response http.ResponseWriter, request *http.Request) {
-	response.Header().Set("Content-Type", "application/json")
-	vars := mux.Vars(request)
-
-	proxy, err := server.collection.Get(vars["proxy"])
-	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	data, err := json.Marshal(proxyWithToxics(proxy))
-	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = response.Write(data)
-	if err != nil {
-		logrus.Warn("ProxyShow: Failed to write response to client", err)
-	}
-}
-
 func (server *server) ToxicIndex(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(request)
@@ -252,6 +252,42 @@ func (server *server) ToxicIndex(response http.ResponseWriter, request *http.Req
 	_, err = response.Write(data)
 	if err != nil {
 		logrus.Warn("ToxicIndex: Failed to write response to client", err)
+	}
+}
+
+func (server *server) ToxicCreate(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(request)
+
+	proxy, err := server.collection.Get(vars["proxy"])
+	if err != nil {
+		http.Error(response, server.apiError(err, http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	var toxic Toxic
+	switch vars["stream"] {
+	case "upstream":
+		toxic, err = proxy.upToxics.AddToxicJson(vars["toxic"], request.Body)
+	case "downstream":
+		toxic, err = proxy.downToxics.AddToxicJson(vars["toxic"], request.Body)
+	default:
+		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
+	}
+	if err != nil {
+		http.Error(response, server.apiError(err, http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	data, err := json.Marshal(toxic)
+	if err != nil {
+		http.Error(response, server.apiError(err, http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = response.Write(data)
+	if err != nil {
+		logrus.Warn("ToxicCreate: Failed to write response to client", err)
 	}
 }
 
@@ -291,42 +327,6 @@ func (server *server) ToxicShow(response http.ResponseWriter, request *http.Requ
 	}
 }
 
-func (server *server) ToxicCreate(response http.ResponseWriter, request *http.Request) {
-	response.Header().Set("Content-Type", "application/json")
-	vars := mux.Vars(request)
-
-	proxy, err := server.collection.Get(vars["proxy"])
-	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	var toxic Toxic
-	switch vars["stream"] {
-	case "upstream":
-		toxic, err = proxy.upToxics.SetToxicJson(vars["toxic"], request.Body)
-	case "downstream":
-		toxic, err = proxy.downToxics.SetToxicJson(vars["toxic"], request.Body)
-	default:
-		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
-	}
-	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
-	data, err := json.Marshal(toxic)
-	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = response.Write(data)
-	if err != nil {
-		logrus.Warn("ToxicCreate: Failed to write response to client", err)
-	}
-}
-
 func (server *server) ToxicUpdate(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(request)
@@ -340,9 +340,9 @@ func (server *server) ToxicUpdate(response http.ResponseWriter, request *http.Re
 	var toxic Toxic
 	switch vars["stream"] {
 	case "upstream":
-		toxic, err = proxy.upToxics.SetToxicJson(vars["toxic"], request.Body)
+		toxic, err = proxy.upToxics.UpdateToxicJson(vars["toxic"], request.Body)
 	case "downstream":
-		toxic, err = proxy.downToxics.SetToxicJson(vars["toxic"], request.Body)
+		toxic, err = proxy.downToxics.UpdateToxicJson(vars["toxic"], request.Body)
 	default:
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 	}
@@ -364,38 +364,34 @@ func (server *server) ToxicUpdate(response http.ResponseWriter, request *http.Re
 }
 
 func (server *server) ToxicDelete(response http.ResponseWriter, request *http.Request) {
-	response.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(request)
 
 	proxy, err := server.collection.Get(vars["proxy"])
 	if err != nil {
+		response.Header().Set("Content-Type", "application/json")
 		http.Error(response, server.apiError(err, http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 
-	var toxic Toxic
 	switch vars["stream"] {
 	case "upstream":
-		toxic, err = proxy.upToxics.SetToxicJson(vars["toxic"], request.Body)
+		err = proxy.upToxics.RemoveToxic(vars["toxic"])
 	case "downstream":
-		toxic, err = proxy.downToxics.SetToxicJson(vars["toxic"], request.Body)
+		err = proxy.downToxics.RemoveToxic(vars["toxic"])
 	default:
+		response.Header().Set("Content-Type", "application/json")
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 	}
 	if err != nil {
+		response.Header().Set("Content-Type", "application/json")
 		http.Error(response, server.apiError(err, http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	data, err := json.Marshal(toxic)
+	response.WriteHeader(http.StatusNoContent)
+	_, err = response.Write(nil)
 	if err != nil {
-		http.Error(response, server.apiError(err, http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = response.Write(data)
-	if err != nil {
-		logrus.Warn("ToxicDelete: Failed to write response to client", err)
+		logrus.Warn("ToxicDelete: Failed to write headers to client", err)
 	}
 }
 
