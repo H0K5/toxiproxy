@@ -20,7 +20,7 @@ clean:
 	rm *.deb
 
 test:
-	GOMAXPROCS=4 GOPATH=$(COMBINED_GOPATH) go test -v
+	GOMAXPROCS=4 GOPATH=$(COMBINED_GOPATH) go test -v -race
 
 tmp/build/toxiproxy-linux-amd64:
 	GOOS=linux GOARCH=amd64 GOPATH=$(COMBINED_GOPATH) go build -o $(@)
