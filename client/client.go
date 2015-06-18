@@ -186,9 +186,41 @@ func (proxy *Proxy) Toxics(direction string) (Toxics, error) {
 	return toxics, nil
 }
 
-// SetToxic sets the parameters for a toxic with a given name in the direction.
+// AddToxic adds a toxic to the given direction.
 // See https://github.com/Shopify/toxiproxy#toxics for a list of all Toxics.
-func (proxy *Proxy) SetToxic(name string, direction string, toxic Toxic) (Toxic, error) {
+func (proxy *Proxy) AddToxic(name, typeName, direction string, toxic Toxic) (Toxic, error) {
+	toxic["name"] = name
+	if typeName != "" {
+		toxic["type"] = typeName
+	}
+
+	request, err := json.Marshal(toxic)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post(proxy.client.endpoint+"/proxies/"+proxy.Name+"/"+direction+"/toxics", "application/json", bytes.NewReader(request))
+	if err != nil {
+		return nil, err
+	}
+
+	err = checkError(resp, http.StatusOK, "AddToxic")
+	if err != nil {
+		return nil, err
+	}
+
+	toxics := make(Toxic)
+	err = json.NewDecoder(resp.Body).Decode(&toxics)
+	if err != nil {
+		return nil, err
+	}
+
+	return toxics, nil
+}
+
+// UpdateToxic sets the parameters for an existing toxic with the given name and direction.
+// See https://github.com/Shopify/toxiproxy#toxics for a list of all Toxics.
+func (proxy *Proxy) UpdateToxic(name, direction string, toxic Toxic) (Toxic, error) {
 	request, err := json.Marshal(toxic)
 	if err != nil {
 		return nil, err
@@ -199,7 +231,7 @@ func (proxy *Proxy) SetToxic(name string, direction string, toxic Toxic) (Toxic,
 		return nil, err
 	}
 
-	err = checkError(resp, http.StatusOK, "SetToxic")
+	err = checkError(resp, http.StatusOK, "UpdateToxic")
 	if err != nil {
 		return nil, err
 	}

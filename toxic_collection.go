@@ -1,38 +1,32 @@
-package main
+package toxiproxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/Shopify/toxiproxy/toxics"
 )
 
 type ToxicCollection struct {
 	sync.Mutex
 
-	noop      *ToxicWrapper
-	proxy     *Proxy
-	chain     []*ToxicWrapper
-	toxics    []*ToxicWrapper
-	available []Toxic
-	links     map[string]*ToxicLink
+	noop   *toxics.ToxicWrapper
+	proxy  *Proxy
+	chain  []*toxics.ToxicWrapper
+	toxics []*toxics.ToxicWrapper
+	links  map[string]*ToxicLink
 }
 
 func NewToxicCollection(proxy *Proxy) *ToxicCollection {
-	available := []Toxic{
-		new(SlowCloseToxic),
-		new(LatencyToxic),
-		new(BandwidthToxic),
-		new(TimeoutToxic),
-	}
-
 	collection := &ToxicCollection{
-		noop:      &ToxicWrapper{new(NoopToxic), 0},
-		proxy:     proxy,
-		chain:     make([]*ToxicWrapper, 1, len(available)+1),
-		toxics:    make([]*ToxicWrapper, 0, len(available)),
-		available: available,
-		links:     make(map[string]*ToxicLink),
+		noop:   &toxics.ToxicWrapper{new(toxics.NoopToxic), "", "", 0},
+		proxy:  proxy,
+		chain:  make([]*toxics.ToxicWrapper, 1, toxics.Count()+1),
+		toxics: make([]*toxics.ToxicWrapper, 0, toxics.Count()),
+		links:  make(map[string]*ToxicLink),
 	}
 	collection.chain[0] = collection.noop
 	return collection
@@ -50,60 +44,70 @@ func (c *ToxicCollection) ResetToxics() {
 	c.toxics = c.toxics[:0]
 }
 
-func (c *ToxicCollection) GetToxic(name string) Toxic {
+func (c *ToxicCollection) GetToxic(name string) toxics.Toxic {
 	c.Lock()
 	defer c.Unlock()
 
 	for _, toxic := range c.toxics {
-		if toxic.Name() == name {
+		if toxic.Name == name {
 			return toxic
 		}
 	}
 	return nil
 }
 
-func (c *ToxicCollection) GetToxicMap() map[string]Toxic {
+func (c *ToxicCollection) GetToxicMap() map[string]toxics.Toxic {
 	c.Lock()
 	defer c.Unlock()
 
-	result := make(map[string]Toxic)
+	result := make(map[string]toxics.Toxic)
 	for _, toxic := range c.toxics {
-		result[toxic.Name()] = toxic
+		result[toxic.Name] = toxic
 	}
 	return result
 }
 
-func (c *ToxicCollection) AddToxicJson(name string, data io.Reader) (Toxic, error) {
+func (c *ToxicCollection) AddToxicJson(data io.Reader) (toxics.Toxic, error) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, toxic := range c.available {
-		if toxic.Name() == name {
-			for _, toxic2 := range c.toxics {
-				if toxic2.Name() == name {
-					return nil, fmt.Errorf("Toxic already exists: %s", name)
-				}
-			}
-			err := json.NewDecoder(data).Decode(toxic)
-			if err != nil {
-				return nil, err
-			}
+	var buffer bytes.Buffer
 
-			toxic2 := &ToxicWrapper{toxic, -1}
-			c.toxics = append(c.toxics, toxic2)
-			c.chainAddToxic(toxic2)
-			return toxic, nil
+	wrapper := new(toxics.ToxicWrapper)
+	err := json.NewDecoder(io.TeeReader(data, &buffer)).Decode(wrapper)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't decode JSON: %v", err)
+	}
+	if wrapper.Type == "" {
+		wrapper.Type = wrapper.Name
+	}
+
+	wrapper.Toxic = toxics.New(wrapper.Type)
+	if wrapper.Toxic == nil {
+		return nil, fmt.Errorf("Bad toxic type: '%s'", wrapper.Name)
+	}
+
+	for _, toxic := range c.toxics {
+		if toxic.Name == wrapper.Name {
+			return nil, fmt.Errorf("Toxic already exists: '%s'", wrapper.Name)
 		}
 	}
-	return nil, fmt.Errorf("Bad toxic type: %s", name)
+	err = json.NewDecoder(&buffer).Decode(wrapper.Toxic)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't decode toxic JSON: %v", err)
+	}
+
+	c.toxics = append(c.toxics, wrapper)
+	c.chainAddToxic(wrapper)
+	return wrapper.Toxic, nil
 }
 
-func (c *ToxicCollection) UpdateToxicJson(name string, data io.Reader) (Toxic, error) {
+func (c *ToxicCollection) UpdateToxicJson(name string, data io.Reader) (toxics.Toxic, error) {
 	c.Lock()
 	defer c.Unlock()
 
 	for _, toxic := range c.toxics {
-		if toxic.Name() == name {
+		if toxic.Name == name {
 			err := json.NewDecoder(data).Decode(toxic.Toxic)
 			if err != nil {
 				return nil, err
@@ -121,7 +125,7 @@ func (c *ToxicCollection) RemoveToxic(name string) error {
 	defer c.Unlock()
 
 	for index, toxic := range c.toxics {
-		if toxic.Name() == name {
+		if toxic.Name == name {
 			c.toxics = append(c.toxics[:index], c.toxics[index+1:]...)
 
 			c.chainRemoveToxic(toxic)
@@ -147,7 +151,7 @@ func (c *ToxicCollection) RemoveLink(name string) {
 }
 
 // All following functions assume the lock is already grabbed
-func (c *ToxicCollection) chainAddToxic(toxic *ToxicWrapper) {
+func (c *ToxicCollection) chainAddToxic(toxic *toxics.ToxicWrapper) {
 	toxic.Index = len(c.chain)
 	c.chain = append(c.chain, toxic)
 
@@ -163,7 +167,7 @@ func (c *ToxicCollection) chainAddToxic(toxic *ToxicWrapper) {
 	group.Wait()
 }
 
-func (c *ToxicCollection) chainUpdateToxic(toxic *ToxicWrapper) {
+func (c *ToxicCollection) chainUpdateToxic(toxic *toxics.ToxicWrapper) {
 	c.chain[toxic.Index] = toxic
 
 	// Asynchronously add the toxic in each link
@@ -178,7 +182,7 @@ func (c *ToxicCollection) chainUpdateToxic(toxic *ToxicWrapper) {
 	group.Wait()
 }
 
-func (c *ToxicCollection) chainRemoveToxic(toxic *ToxicWrapper) {
+func (c *ToxicCollection) chainRemoveToxic(toxic *toxics.ToxicWrapper) {
 	c.chain = append(c.chain[:toxic.Index], c.chain[toxic.Index+1:]...)
 	for i := toxic.Index; i < len(c.chain); i++ {
 		c.chain[i].Index = i

@@ -1,8 +1,10 @@
-package main
+package toxics
 
 import (
 	"math/rand"
 	"time"
+
+	"github.com/Shopify/toxiproxy/stream"
 )
 
 // The LatencyToxic passes data through with the a delay of latency +/- jitter added.
@@ -10,10 +12,6 @@ type LatencyToxic struct {
 	// Times in milliseconds
 	Latency int64 `json:"latency"`
 	Jitter  int64 `json:"jitter"`
-}
-
-func (t *LatencyToxic) Name() string {
-	return "latency"
 }
 
 func (t *LatencyToxic) delay() time.Duration {
@@ -26,24 +24,28 @@ func (t *LatencyToxic) delay() time.Duration {
 	return time.Duration(delay) * time.Millisecond
 }
 
-func (t *LatencyToxic) Pipe(stub *ToxicStub) {
+func (t *LatencyToxic) Pipe(stub *stream.ToxicStub) {
 	for {
 		select {
-		case <-stub.interrupt:
+		case <-stub.Interrupt:
 			return
-		case c := <-stub.input:
+		case c := <-stub.Input:
 			if c == nil {
 				stub.Close()
 				return
 			}
-			sleep := t.delay() - time.Now().Sub(c.timestamp)
+			sleep := t.delay() - time.Now().Sub(c.Timestamp)
 			select {
 			case <-time.After(sleep):
-				stub.output <- c
-			case <-stub.interrupt:
-				stub.output <- c // Don't drop any data on the floor
+				stub.Output <- c
+			case <-stub.Interrupt:
+				stub.Output <- c // Don't drop any data on the floor
 				return
 			}
 		}
 	}
+}
+
+func init() {
+	Register("latency", new(LatencyToxic))
 }

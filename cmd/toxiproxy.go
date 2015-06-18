@@ -4,9 +4,9 @@ import (
 	"flag"
 	"math/rand"
 	"time"
-)
 
-var Version = "1.1.0"
+	"github.com/Shopify/toxiproxy"
+)
 
 var host string
 var port string
@@ -20,7 +20,7 @@ func init() {
 }
 
 func main() {
-	proxies := NewProxyCollection()
-	server := NewServer(proxies)
+	proxies := toxiproxy.NewProxyCollection()
+	server := toxiproxy.NewServer(proxies)
 	server.Listen(host, port)
 }
