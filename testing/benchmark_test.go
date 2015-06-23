@@ -8,7 +8,7 @@ import (
 
 // Benchmark numbers:
 //
-// Toxiproxy 1.0
+// Toxiproxy 1.1
 //
 // 1x Toxic Types:
 //     BenchmarkDirect             3000            588148 ns/op

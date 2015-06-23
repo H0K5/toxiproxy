@@ -78,18 +78,18 @@ func (c *ToxicCollection) AddToxicJson(data io.Reader) (toxics.Toxic, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't decode JSON: %v", err)
 	}
-	if wrapper.Type == "" {
-		wrapper.Type = wrapper.Name
+	if wrapper.Name == "" {
+		wrapper.Name = wrapper.Type
 	}
 
 	wrapper.Toxic = toxics.New(wrapper.Type)
 	if wrapper.Toxic == nil {
-		return nil, fmt.Errorf("Bad toxic type: '%s'", wrapper.Name)
+		return nil, fmt.Errorf("Toxic type not found: '%s'", wrapper.Name)
 	}
 
 	for _, toxic := range c.toxics {
 		if toxic.Name == wrapper.Name {
-			return nil, fmt.Errorf("Toxic already exists: '%s'", wrapper.Name)
+			return nil, fmt.Errorf("Toxic with same name already exists: '%s'", wrapper.Name)
 		}
 	}
 	err = json.NewDecoder(&buffer).Decode(wrapper.Toxic)
@@ -117,7 +117,7 @@ func (c *ToxicCollection) UpdateToxicJson(name string, data io.Reader) (toxics.T
 			return toxic.Toxic, nil
 		}
 	}
-	return nil, fmt.Errorf("Bad toxic type: %s", name)
+	return nil, fmt.Errorf("Toxic not found: %s", name)
 }
 
 func (c *ToxicCollection) RemoveToxic(name string) error {
@@ -132,7 +132,7 @@ func (c *ToxicCollection) RemoveToxic(name string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Bad toxic type: %s", name)
+	return fmt.Errorf("Toxic not found: %s", name)
 }
 
 func (c *ToxicCollection) StartLink(name string, input io.Reader, output io.WriteCloser) {

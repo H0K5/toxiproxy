@@ -264,7 +264,7 @@ func TestResetState(t *testing.T) {
 			t.Fatal("Unable to create proxy: ", err)
 		}
 
-		latency, err := disabledProxy.AddToxic("latency", "", "downstream", tclient.Toxic{
+		latency, err := disabledProxy.AddToxic("", "latency", "downstream", tclient.Toxic{
 			"latency": 100,
 			"jitter":  10,
 		})
@@ -361,7 +361,7 @@ func TestUpdateToxics(t *testing.T) {
 			t.Fatal("Unable to create proxy: ", err)
 		}
 
-		latency, err := testProxy.AddToxic("latency", "", "downstream", tclient.Toxic{
+		latency, err := testProxy.AddToxic("", "latency", "downstream", tclient.Toxic{
 			"latency": 100,
 			"jitter":  10,
 		})

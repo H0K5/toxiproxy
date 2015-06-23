@@ -123,7 +123,7 @@ func DoLatencyTest(t *testing.T, upLatency, downLatency *toxics.LatencyToxic) {
 		if upLatency == nil {
 			upLatency = &toxics.LatencyToxic{}
 		} else {
-			_, err := proxy.upToxics.AddToxicJson(ToxicToJson(t, "latency", "", upLatency))
+			_, err := proxy.upToxics.AddToxicJson(ToxicToJson(t, "", "latency", upLatency))
 			if err != nil {
 				t.Error("AddToxicJson returned error:", err)
 			}
@@ -131,7 +131,7 @@ func DoLatencyTest(t *testing.T, upLatency, downLatency *toxics.LatencyToxic) {
 		if downLatency == nil {
 			downLatency = &toxics.LatencyToxic{}
 		} else {
-			_, err := proxy.downToxics.AddToxicJson(ToxicToJson(t, "latency", "", downLatency))
+			_, err := proxy.downToxics.AddToxicJson(ToxicToJson(t, "", "latency", downLatency))
 			if err != nil {
 				t.Error("AddToxicJson returned error:", err)
 			}
@@ -406,7 +406,7 @@ func TestBandwidthToxic(t *testing.T) {
 	serverConn := <-serverConnRecv
 
 	rate := 1000 // 1MB/s
-	proxy.upToxics.AddToxicJson(ToxicToJson(t, "bandwidth", "", &toxics.BandwidthToxic{Rate: int64(rate)}))
+	proxy.upToxics.AddToxicJson(ToxicToJson(t, "", "bandwidth", &toxics.BandwidthToxic{Rate: int64(rate)}))
 
 	buf := []byte(strings.Repeat("hello world ", 40000)) // 480KB
 	go func() {
@@ -472,11 +472,11 @@ func TestToxicUpdate(t *testing.T) {
 				return
 			default:
 				if enabled {
-					proxy.upToxics.AddToxicJson(ToxicToJson(t, "latency", "", &toxics.LatencyToxic{}))
+					proxy.upToxics.AddToxicJson(ToxicToJson(t, "", "latency", &toxics.LatencyToxic{}))
 					proxy.downToxics.RemoveToxic("latency")
 				} else {
 					proxy.upToxics.RemoveToxic("latency")
-					proxy.downToxics.AddToxicJson(ToxicToJson(t, "latency", "", &toxics.LatencyToxic{}))
+					proxy.downToxics.AddToxicJson(ToxicToJson(t, "", "latency", &toxics.LatencyToxic{}))
 				}
 				enabled = !enabled
 			}
@@ -524,7 +524,7 @@ func BenchmarkBandwidthToxic100MB(b *testing.B) {
 		b.Error("Unable to dial TCP server", err)
 	}
 
-	proxy.upToxics.AddToxicJson(ToxicToJson(nil, "bandwidth", "", &toxics.BandwidthToxic{Rate: 100 * 1000}))
+	proxy.upToxics.AddToxicJson(ToxicToJson(nil, "", "bandwidth", &toxics.BandwidthToxic{Rate: 100 * 1000}))
 
 	b.SetBytes(int64(len(buf)))
 	b.ReportAllocs()
