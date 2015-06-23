@@ -41,7 +41,7 @@ func (t *BandwidthToxic) Pipe(stub *stream.ToxicStub) {
 			select {
 			case <-time.After(sleep):
 				// time.After only seems to have ~1ms prevision, so offset the next sleep by the error
-				sleep -= time.Now().Sub(start)
+				sleep -= time.Since(start)
 				stub.Output <- p
 			case <-stub.Interrupt:
 				stub.Output <- p // Don't drop any data on the floor

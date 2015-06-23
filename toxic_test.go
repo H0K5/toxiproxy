@@ -152,7 +152,7 @@ func DoLatencyTest(t *testing.T, upLatency, downLatency *toxics.LatencyToxic) {
 		}
 		AssertDeltaTime(t,
 			"Server read",
-			time.Now().Sub(timer),
+			time.Since(timer),
 			time.Duration(upLatency.Latency)*time.Millisecond,
 			time.Duration(upLatency.Jitter+10)*time.Millisecond,
 		)
@@ -167,13 +167,13 @@ func DoLatencyTest(t *testing.T, upLatency, downLatency *toxics.LatencyToxic) {
 		}
 		AssertDeltaTime(t,
 			"Client read",
-			time.Now().Sub(timer2),
+			time.Since(timer2),
 			time.Duration(downLatency.Latency)*time.Millisecond,
 			time.Duration(downLatency.Jitter+10)*time.Millisecond,
 		)
 		AssertDeltaTime(t,
 			"Round trip",
-			time.Now().Sub(timer),
+			time.Since(timer),
 			time.Duration(upLatency.Latency+downLatency.Latency)*time.Millisecond,
 			time.Duration(upLatency.Jitter+downLatency.Jitter+10)*time.Millisecond,
 		)
@@ -363,7 +363,7 @@ func TestProxyLatency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		AssertEchoResponse(t, conn, serverConn)
 	}
-	latency := time.Now().Sub(start) / 200
+	latency := time.Since(start) / 200
 	if latency > 300*time.Microsecond {
 		t.Errorf("Average proxy latency > 300µs (%v)", latency)
 	} else {
@@ -428,7 +428,7 @@ func TestBandwidthToxic(t *testing.T) {
 
 	AssertDeltaTime(t,
 		"Bandwidth",
-		time.Now().Sub(start),
+		time.Since(start),
 		time.Duration(len(buf))*time.Second/time.Duration(rate*1000),
 		10*time.Millisecond,
 	)

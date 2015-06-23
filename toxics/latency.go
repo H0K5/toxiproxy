@@ -34,7 +34,7 @@ func (t *LatencyToxic) Pipe(stub *stream.ToxicStub) {
 				stub.Close()
 				return
 			}
-			sleep := t.delay() - time.Now().Sub(c.Timestamp)
+			sleep := t.delay() - time.Since(c.Timestamp)
 			select {
 			case <-time.After(sleep):
 				stub.Output <- c
