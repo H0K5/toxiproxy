@@ -89,8 +89,8 @@ func (server *server) ResetState(response http.ResponseWriter, request *http.Req
 			return
 		}
 
-		proxy.upToxics.ResetToxics()
-		proxy.downToxics.ResetToxics()
+		proxy.UpToxics.ResetToxics()
+		proxy.DownToxics.ResetToxics()
 	}
 
 	response.WriteHeader(http.StatusNoContent)
@@ -239,9 +239,9 @@ func (server *server) ToxicIndex(response http.ResponseWriter, request *http.Req
 	var data []byte
 	switch vars["stream"] {
 	case "upstream":
-		data, err = json.Marshal(proxy.upToxics.GetToxicMap())
+		data, err = json.Marshal(proxy.UpToxics.GetToxicMap())
 	case "downstream":
-		data, err = json.Marshal(proxy.downToxics.GetToxicMap())
+		data, err = json.Marshal(proxy.DownToxics.GetToxicMap())
 	default:
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 	}
@@ -269,9 +269,9 @@ func (server *server) ToxicCreate(response http.ResponseWriter, request *http.Re
 	var toxic toxics.Toxic
 	switch vars["stream"] {
 	case "upstream":
-		toxic, err = proxy.upToxics.AddToxicJson(request.Body)
+		toxic, err = proxy.UpToxics.AddToxicJson(request.Body)
 	case "downstream":
-		toxic, err = proxy.downToxics.AddToxicJson(request.Body)
+		toxic, err = proxy.DownToxics.AddToxicJson(request.Body)
 	default:
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -306,9 +306,9 @@ func (server *server) ToxicShow(response http.ResponseWriter, request *http.Requ
 	var toxic toxics.Toxic
 	switch vars["stream"] {
 	case "upstream":
-		toxic = proxy.upToxics.GetToxic(vars["toxic"])
+		toxic = proxy.UpToxics.GetToxic(vars["toxic"])
 	case "downstream":
-		toxic = proxy.downToxics.GetToxic(vars["toxic"])
+		toxic = proxy.DownToxics.GetToxic(vars["toxic"])
 	default:
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -343,9 +343,9 @@ func (server *server) ToxicUpdate(response http.ResponseWriter, request *http.Re
 	var toxic toxics.Toxic
 	switch vars["stream"] {
 	case "upstream":
-		toxic, err = proxy.upToxics.UpdateToxicJson(vars["toxic"], request.Body)
+		toxic, err = proxy.UpToxics.UpdateToxicJson(vars["toxic"], request.Body)
 	case "downstream":
-		toxic, err = proxy.downToxics.UpdateToxicJson(vars["toxic"], request.Body)
+		toxic, err = proxy.DownToxics.UpdateToxicJson(vars["toxic"], request.Body)
 	default:
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -379,9 +379,9 @@ func (server *server) ToxicDelete(response http.ResponseWriter, request *http.Re
 
 	switch vars["stream"] {
 	case "upstream":
-		err = proxy.upToxics.RemoveToxic(vars["toxic"])
+		err = proxy.UpToxics.RemoveToxic(vars["toxic"])
 	case "downstream":
-		err = proxy.downToxics.RemoveToxic(vars["toxic"])
+		err = proxy.DownToxics.RemoveToxic(vars["toxic"])
 	default:
 		response.Header().Set("Content-Type", "application/json")
 		http.Error(response, server.apiError(ErrInvalidStream, http.StatusBadRequest), http.StatusBadRequest)
@@ -426,7 +426,7 @@ func proxyWithToxics(proxy *Proxy) (result struct {
 	DownstreamToxics map[string]toxics.Toxic `json:"downstream_toxics"`
 }) {
 	result.Proxy = proxy
-	result.UpstreamToxics = proxy.upToxics.GetToxicMap()
-	result.DownstreamToxics = proxy.downToxics.GetToxicMap()
+	result.UpstreamToxics = proxy.UpToxics.GetToxicMap()
+	result.DownstreamToxics = proxy.DownToxics.GetToxicMap()
 	return
 }
