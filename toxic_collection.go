@@ -40,7 +40,6 @@ func (c *ToxicCollection) ResetToxics() {
 		// TODO do this in bulk
 		c.chainRemoveToxic(toxic)
 	}
-	// TODO does this keep capacity?
 	c.toxics = c.toxics[:0]
 }
 

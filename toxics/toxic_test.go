@@ -12,6 +12,7 @@ import (
 
 	"github.com/Shopify/toxiproxy"
 	"github.com/Shopify/toxiproxy/toxics"
+	"github.com/Sirupsen/logrus"
 	"gopkg.in/tomb.v1"
 )
 
