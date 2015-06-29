@@ -15,6 +15,10 @@ import (
 	"gopkg.in/tomb.v1"
 )
 
+func init() {
+	logrus.SetLevel(logrus.FatalLevel)
+}
+
 func NewTestProxy(name, upstream string) *toxiproxy.Proxy {
 	proxy := toxiproxy.NewProxy()
 
