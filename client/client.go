@@ -187,11 +187,12 @@ func (proxy *Proxy) Toxics(direction string) (Toxics, error) {
 }
 
 // AddToxic adds a toxic to the given direction.
-// See https://github.com/Shopify/toxiproxy#toxics for a list of all Toxics.
+// If a name is not specified, it will default to the same as the type.
+// See https://github.com/Shopify/toxiproxy#toxics for a list of all Toxic types.
 func (proxy *Proxy) AddToxic(name, typeName, direction string, toxic Toxic) (Toxic, error) {
-	toxic["name"] = name
-	if typeName != "" {
-		toxic["type"] = typeName
+	toxic["type"] = typeName
+	if name != "" {
+		toxic["name"] = name
 	}
 
 	request, err := json.Marshal(toxic)
@@ -219,7 +220,6 @@ func (proxy *Proxy) AddToxic(name, typeName, direction string, toxic Toxic) (Tox
 }
 
 // UpdateToxic sets the parameters for an existing toxic with the given name and direction.
-// See https://github.com/Shopify/toxiproxy#toxics for a list of all Toxics.
 func (proxy *Proxy) UpdateToxic(name, direction string, toxic Toxic) (Toxic, error) {
 	request, err := json.Marshal(toxic)
 	if err != nil {
@@ -243,6 +243,22 @@ func (proxy *Proxy) UpdateToxic(name, direction string, toxic Toxic) (Toxic, err
 	}
 
 	return toxics, nil
+}
+
+// RemoveToxic renives the toxic with the given name and direction.
+func (proxy *Proxy) RemoveToxic(name, direction string) error {
+	httpClient := &http.Client{}
+	req, err := http.NewRequest("DELETE", proxy.client.endpoint+"/proxies/"+proxy.Name+"/"+direction+"/toxics/"+name, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return checkError(resp, http.StatusNoContent, "RemoveToxic")
 }
 
 // ResetState resets the state of all proxies and toxics in Toxiproxy.
