@@ -13,7 +13,7 @@ darwin: tmp/build/toxiproxy-darwin-amd64
 linux: tmp/build/toxiproxy-linux-amd64
 
 build:
-	GOPATH=$(COMBINED_GOPATH) go build -o toxiproxy ./cmd
+	GOPATH=$(COMBINED_GOPATH) go build -o toxiproxy
 
 clean:
 	rm tmp/build/*
@@ -23,10 +23,10 @@ test:
 	GOMAXPROCS=4 GOPATH=$(COMBINED_GOPATH) go test -v -race ./...
 
 tmp/build/toxiproxy-linux-amd64:
-	GOOS=linux GOARCH=amd64 GOPATH=$(COMBINED_GOPATH) go build -o $(@) ./cmd
+	GOOS=linux GOARCH=amd64 GOPATH=$(COMBINED_GOPATH) go build -o $(@)
 
 tmp/build/toxiproxy-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 GOPATH=$(COMBINED_GOPATH) go build -o $(@) ./cmd
+	GOOS=darwin GOARCH=amd64 GOPATH=$(COMBINED_GOPATH) go build -o $(@)
 
 docker:
 	docker build --tag="shopify/toxiproxy:$(VERSION)" .

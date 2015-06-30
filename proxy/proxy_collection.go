@@ -1,4 +1,4 @@
-package toxiproxy
+package proxy
 
 import (
 	"fmt"

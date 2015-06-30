@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Shopify/toxiproxy"
+	"github.com/Shopify/toxiproxy/proxy"
 	"github.com/Shopify/toxiproxy/toxics"
 )
 
@@ -25,7 +25,7 @@ func AssertDeltaTime(t *testing.T, message string, actual, expected, delta time.
 }
 
 func DoLatencyTest(t *testing.T, upLatency, downLatency *toxics.LatencyToxic) {
-	WithEchoProxy(t, func(conn net.Conn, response chan []byte, proxy *toxiproxy.Proxy) {
+	WithEchoProxy(t, func(conn net.Conn, response chan []byte, proxy *proxy.Proxy) {
 		if upLatency == nil {
 			upLatency = &toxics.LatencyToxic{}
 		} else {

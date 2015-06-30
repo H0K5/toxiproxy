@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Shopify/toxiproxy"
+	"github.com/Shopify/toxiproxy/proxy"
 	"github.com/Shopify/toxiproxy/toxics"
 	"github.com/Sirupsen/logrus"
 	"gopkg.in/tomb.v1"
@@ -20,8 +20,8 @@ func init() {
 	logrus.SetLevel(logrus.FatalLevel)
 }
 
-func NewTestProxy(name, upstream string) *toxiproxy.Proxy {
-	proxy := toxiproxy.NewProxy()
+func NewTestProxy(name, upstream string) *proxy.Proxy {
+	proxy := proxy.NewProxy()
 
 	proxy.Name = name
 	proxy.Listen = "localhost:0"
@@ -73,7 +73,7 @@ func WithEchoServer(t *testing.T, f func(string, chan []byte)) {
 	close(response)
 }
 
-func WithEchoProxy(t *testing.T, f func(proxy net.Conn, response chan []byte, proxyServer *toxiproxy.Proxy)) {
+func WithEchoProxy(t *testing.T, f func(proxy net.Conn, response chan []byte, proxyServer *proxy.Proxy)) {
 	WithEchoServer(t, func(upstream string, response chan []byte) {
 		proxy := NewTestProxy("test", upstream)
 		proxy.Start()
